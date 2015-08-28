@@ -1,0 +1,13 @@
+{
+  "name": "0-responder-for-express",
+  "version": "0.0.0",
+  "private": true,
+  "main": "server.js",
+  "dependencies": {
+    "body-parser": "^1.13.3",
+    "compression": "^1.5.2",
+    "express": "^4.13.3",
+    "morgan": "^1.6.1",
+    "send": "^0.13.0"
+  }
+}
