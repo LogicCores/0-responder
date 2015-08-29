@@ -6,6 +6,7 @@ const COMPRESSION = require('compression');
 const MORGAN = require('morgan');
 const SEND = require('send');
 const PATH = require("path");
+const FS = require("fs");
 
 
 const CONFIG = {
@@ -78,7 +79,8 @@ var server = HTTP.createServer(function (req, res) {
         app.get(
             /^\/cores\/export\/for\/browserify\/(.*)/,
             require("../../../../cores/export/for/browserify").app({
-                basePath: PATH.join(__dirname, "../../../../www/0")
+                basePath: PATH.join(__dirname, "../../../../www/0"),
+                distPath: PATH.join(__dirname, "../../../../www/0/dist"),
             })
         );
 
@@ -89,10 +91,42 @@ var server = HTTP.createServer(function (req, res) {
         });
 
 
-        app.get(/^(.*)/, function (req, res, next) {
-        	return SEND(req, req.params[0], {
+        app.get(/^(.*\.(?:css|png|jpg|jpeg|js|ico|font))/, function (req, res, next) {
+            return SEND(req, req.params[0], {
         		root: PATH.join(__dirname, "../../../../www/0")
         	}).on("error", next).pipe(res);
+        });
+
+        app.get(/^(.*)/, function (req, res, next) {
+            
+            function locateFile (uri) {
+                if (/\/$/.test(uri)) {
+                    uri += "index";
+                }
+                var htmExt = ".htm" + (/\/index$/.test(uri) ? "l":"");
+                var path = PATH.join(__dirname, "../../../../www/0", uri + htmExt);
+                return FS.exists(path, function (exists) {
+                    
+                    function send (uri) {
+                    	return SEND(req, uri, {
+                    		root: PATH.join(__dirname, "../../../../www/0")
+                    	}).on("error", next).pipe(res);
+                    }
+    
+                    if (exists) {
+                        uri = uri + htmExt;
+                    } else {
+                        // If the original path is not found we fall back
+                        // to the htm file of the parent secion and let the
+                        // client load the correct page content based on
+                        // window.location.pathname
+                        return locateFile(PATH.dirname(uri));
+                    }
+                    return send(uri);
+                });
+            }
+            
+            return locateFile(req.params[0]);
         });
 
 
