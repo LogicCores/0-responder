@@ -84,6 +84,14 @@ var server = HTTP.createServer(function (req, res) {
             })
         );
 
+        app.get(
+            /^\/cores\/proxy\/for\/smi.cache\/travis-ci\.org\/(.*)/,
+            require("../../../../cores/proxy/for/smi.cache").app({
+                cacheBasePath: PATH.join(__dirname, "../../../../cache"),
+                sourceBaseUrl: "https://travis-ci.org/"
+            })
+        );
+
         app.get(/^\/cores\/skin\/for\/semantic-ui\/(.*)/, function (req, res, next) {
         	return SEND(req, req.params[0], {
         		root: PATH.join(__dirname, "../../../../cores/skin/for/semantic-ui/node_modules/semantic-ui-css")
@@ -98,21 +106,50 @@ var server = HTTP.createServer(function (req, res) {
         });
 
         app.get(/^(.*)/, function (req, res, next) {
+
+            var htmRequested = /\.html?$/.test(req.params[0]);
             
             function locateFile (uri) {
                 if (/\/$/.test(uri)) {
                     uri += "index";
                 }
+
+                // TODO: Cache in dist path and use it instead of re-generating if no source modified
                 var htmExt = ".htm" + (/\/index$/.test(uri) ? "l":"");
-                var path = PATH.join(__dirname, "../../../../www/0", uri + htmExt);
+                var path = PATH.join(__dirname, "../../../../skins/0/SemanticUI", uri + htmExt);
                 return FS.exists(path, function (exists) {
-                    
+
                     function send (uri) {
-                    	return SEND(req, uri, {
-                    		root: PATH.join(__dirname, "../../../../www/0")
-                    	}).on("error", next).pipe(res);
-                    }
+
+                        var path = PATH.join(__dirname, "../../../../skins/0/SemanticUI", uri);
+
+                        if (htmRequested) {
+                            // The route was requested with the 'htm' extension so we serve
+                            // the raw file instead of the componentifed file.
+                            // TODO: Remove this option and return 404 in production.
+                            return FS.createReadStream(path).pipe(res);
+                        } else {
+
+                            return FS.readFile(path, "utf8", function (err, html) {
+                                if (err) return next(err);
     
+                                return require("../../../../cores/export/for/sm.hoist.VisualComponents").parseForUri(
+                                    PATH.join(__dirname, "../../../../skins/0/SemanticUI/components.json"),
+                                    uri,
+                                    function (err, manifest) {
+                                        if (err) return next(err);
+    
+                                        res.writeHead(200, {
+                                            "Content-Type": "text/html"
+                                        });
+                                        res.end(html);
+                                        return;
+                                    }
+                                );
+                            });
+                        }
+                    }
+
                     if (exists) {
                         uri = uri + htmExt;
                     } else {
