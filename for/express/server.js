@@ -88,6 +88,13 @@ exports.main = function () {
             );
     
             app.get(
+                /^\/cores\/transform\/for\/marked\/(.*)/,
+                require("../../../../cores/transform/for/marked").app({
+                    basePath: PATH.join(__dirname, "../../../../data/0")
+                })
+            );
+    
+            app.get(
                 /^\/cores\/proxy\/for\/smi.cache\/travis-ci\.org\/(.*)/,
                 require("../../../../cores/proxy/0-proxy.api").adapters["smi.cache"].app({
                     cacheBasePath: PATH.join(__dirname, "../../../../cache"),
@@ -105,7 +112,12 @@ exports.main = function () {
             app.get(/^(.*\.(?:css|png|jpg|jpeg|js|ico|font))/, function (req, res, next) {
                 return SEND(req, req.params[0], {
             		root: PATH.join(__dirname, "../../../../www/0")
-            	}).on("error", next).pipe(res);
+            	}).on("error", function (err) {
+
+            	    return SEND(req, req.params[0], {
+                		root: PATH.join(__dirname, "../../../../skins/0/SemanticUI")
+                	}).on("error", next).pipe(res);
+            	}).pipe(res);
             });
     
             app.get(/^(.*)/, function (req, res, next) {
@@ -141,7 +153,7 @@ exports.main = function () {
                                 
             							var re = /(<|\s)component\s*:\s*([^=]+)(\s*=\s*"[^"]*"(?:\/?>|\s))/g;
             							var m;
-            							while (m = re.exec(html)) {
+            							while ( (m = re.exec(html)) ) {
             								html = html.replace(
             								    new RegExp(ESCAPE_REGEXP_COMPONENT(m[0]), "g"),
             								    m[1] + "data-component-" + m[2].replace(/:/g, "-") + m[3]
@@ -167,12 +179,21 @@ exports.main = function () {
                                         uri,
                                         function (err, manifest) {
                                             if (err) return next(err);
-        
+                                            
+                                            if (
+                                                !manifest.components ||
+                                                !manifest.components.html ||
+                                                !manifest.components.html.fsHtmlPath
+                                            ) {
+                                                var err = new Error("'html' component not declared in exports for uri '" + uri + "'!");
+                                                err.code = 404;
+                                                return next(err);
+                                            }
+
                                             res.writeHead(200, {
                                                 "Content-Type": "text/html"
                                             });
-                                            res.end(html);
-                                            return;
+                                            return FS.createReadStream(manifest.components.html.fsHtmlPath).pipe(res);
                                         }
                                     );
                                 });
