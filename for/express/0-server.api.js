@@ -11,13 +11,7 @@ const FS = require("fs");
 const COOKIES = require("cookies");
 
 
-const CONFIG = {
-    bind: "0.0.0.0",
-    port: process.env.PORT
-};
-
-
-exports.main = function () {
+exports.main = function (CONFIG) {
 
     var environmentConfig = require(
         "../../../../../" + PATH.basename(PATH.join(__dirname, "../../../..")) + ".profile.json"

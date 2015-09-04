@@ -2,6 +2,6 @@
 // TODO: Load adapters as needed on demand
 
 exports.adapters = {
-    express: require("./for/express")
+    express: require("./for/express/0-server.spi")
 };
 
