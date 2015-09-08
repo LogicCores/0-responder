@@ -13,11 +13,6 @@ const COOKIES = require("cookies");
 
 exports.main = function (CONFIG) {
 
-    var environmentConfig = require(
-        "../../../../../" + PATH.basename(PATH.join(__dirname, "../../../..")) + ".profile.json"
-    ).environments["127.0.0.1:8090"];
-
-
     var app = new EXPRESS();
 
     app.use(MORGAN("combined", {
@@ -36,12 +31,10 @@ exports.main = function (CONFIG) {
 		if (
 			req.query &&
 			typeof req.query.PREVIEW_KEY !== "undefined" &&
-			environmentConfig["0"] &&
-			environmentConfig["0"]["/cores/responder/for/express"] &&
-			environmentConfig["0"]["/cores/responder/for/express"].previewKey
+			CONFIG.previewKey
 		) {
-			if (req.query.PREVIEW_KEY === environmentConfig["0"]["/cores/responder/for/express"].previewKey) {
-				req.cookies.set("PREVIEW_KEY", environmentConfig["0"]["/cores/responder/for/express"].previewKey);
+			if (req.query.PREVIEW_KEY === CONFIG.previewKey) {
+				req.cookies.set("PREVIEW_KEY", CONFIG.previewKey);
 			} else {
 				req.cookies.set("PREVIEW_KEY", "");
 			}
@@ -105,12 +98,11 @@ exports.main = function (CONFIG) {
         })
     );
 
-    app.get(
-        /^\/cores\/auth\/for\/passport\/0(\/.*)/,
-        require("../../../../cores/auth/0-server.api").adapters.passport.app(
-            environmentConfig["0"]["/cores/auth/for/passport"]
-        )
-    );
+
+    CONFIG.routes.system().forEach(function (route) {
+        app.get(new RegExp(route.match.replace(/\//g, "\\/")), route.app);
+    });
+
 
     app.get(
         /^\/cores\/proxy\/for\/smi.cache\/travis-ci\.org\/(.*)/,
