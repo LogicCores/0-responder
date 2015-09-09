@@ -13,6 +13,11 @@ const COOKIES = require("cookies");
 
 exports.main = function (CONFIG) {
 
+    if (CONFIG.previewKey) {
+        // TODO: Remove once we can generate access tokens from cli dynamically
+        console.log("previewKey: " + CONFIG.previewKey);
+    }
+
     var app = new EXPRESS();
 
     app.use(MORGAN("combined", {
