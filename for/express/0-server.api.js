@@ -123,7 +123,7 @@ exports.main = function (CONFIG) {
     	}).on("error", next).pipe(res);
     });
 
-    app.get(/^(.*\.(?:css|png|jpg|jpeg|js|ico|font))/, function (req, res, next) {
+    app.get(/^(.*\.(?:css|png|jpg|jpeg|js|ico|font|svg)$)/, function (req, res, next) {
         return SEND(req, req.params[0], {
     		root: PATH.join(__dirname, "../../../../www/0")
     	}).on("error", function (err) {
