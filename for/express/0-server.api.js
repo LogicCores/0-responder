@@ -8,15 +8,9 @@ const MORGAN = require('morgan');
 const SEND = require('send');
 const PATH = require("path");
 const FS = require("fs");
-const COOKIES = require("cookies");
 
 
 exports.main = function (CONFIG) {
-
-    if (CONFIG.previewKey) {
-        // TODO: Remove once we can generate access tokens from cli dynamically
-        console.log("previewKey: " + CONFIG.previewKey);
-    }
 
     var app = new EXPRESS();
 
@@ -28,25 +22,6 @@ exports.main = function (CONFIG) {
     
     app.use(COMPRESSION());
 
-    app.use(function (req, res, next) {
-    
-        req.cookies = new COOKIES(req, res);
-
-		// Enable or disable test mode.
-		if (
-			req.query &&
-			typeof req.query.PREVIEW_KEY !== "undefined" &&
-			CONFIG.previewKey
-		) {
-			if (req.query.PREVIEW_KEY === CONFIG.previewKey) {
-				req.cookies.set("PREVIEW_KEY", CONFIG.previewKey);
-			} else {
-				req.cookies.set("PREVIEW_KEY", "");
-			}
-		}
-		return next();
-    });
-    
     app.use(function (req, res, next) {
     	var origin = null;
         if (req.headers.origin) {
@@ -81,58 +56,10 @@ exports.main = function (CONFIG) {
 
 
 
-    app.get(
-        /^\/cores\/export\/for\/babel\/(.*)/,
-        require("../../../../cores/export/for/babel").app({
-            basePath: PATH.join(__dirname, "../../../../www/0")
-        })
-    );
-
-    app.get(
-        /^\/cores\/export\/for\/browserify\/(.*)/,
-        require("../../../../cores/export/for/browserify").app({
-            basePath: PATH.join(__dirname, "../../../../www/0"),
-            distPath: PATH.join(__dirname, "../../../../www/0/dist"),
-        })
-    );
-
-    app.get(
-        /^\/cores\/transform\/for\/marked\/(.*)/,
-        require("../../../../cores/transform/for/marked").app({
-            basePath: PATH.join(__dirname, "../../../../data/0")
-        })
-    );
-
-
     CONFIG.routes.system().forEach(function (route) {
         app.get(new RegExp(route.match.replace(/\//g, "\\/")), route.app);
     });
 
-
-    app.get(
-        /^\/cores\/proxy\/for\/smi.cache\/travis-ci\.org\/(.*)/,
-        require("../../../../cores/proxy/0-proxy.api").adapters["smi.cache"].app({
-            cacheBasePath: PATH.join(__dirname, "../../../../cache"),
-            sourceBaseUrl: "https://travis-ci.org/"
-        })
-    );
-
-    app.get(/^\/cores\/skin\/for\/semantic-ui\/(.*)/, function (req, res, next) {
-    	return SEND(req, req.params[0], {
-    		root: PATH.join(__dirname, "../../../../cores/skin/for/semantic-ui/node_modules/semantic-ui-css")
-    	}).on("error", next).pipe(res);
-    });
-
-    app.get(/^(.*\.(?:css|png|jpg|jpeg|js|ico|font|svg)$)/, function (req, res, next) {
-        return SEND(req, req.params[0], {
-    		root: PATH.join(__dirname, "../../../../www/0")
-    	}).on("error", function (err) {
-
-    	    return SEND(req, req.params[0], {
-        		root: PATH.join(__dirname, "../../../../skins/0/SemanticUI")
-        	}).on("error", next).pipe(res);
-    	}).pipe(res);
-    });
 
     app.get(/^(.*)/, function (req, res, next) {
 
@@ -140,10 +67,10 @@ exports.main = function (CONFIG) {
 
         if (
             !htmRequested &&
-            !req.cookies.get("PREVIEW_KEY")
+            !req.cookies.get("0_INVITE_TOKEN")
         ) {
             res.writeHead(403);
-            res.end("Forbidden");
+            res.end("Forbidden. You need an invite!");
             return;
         }
 
@@ -197,7 +124,7 @@ exports.main = function (CONFIG) {
                         return FS.readFile(path, "utf8", function (err, html) {
                             if (err) return next(err);
 
-                            return require("../../../../cores/export/for/sm.hoist.VisualComponents").parseForUri(
+                            return require("../../../../cores/export/for/sm.hoist.VisualComponents/export").parseForUri(
                                 PATH.join(__dirname, "../../../../skins/0/SemanticUI/components.json"),
                                 uri,
                                 function (err, manifest) {
