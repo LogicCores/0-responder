@@ -3,9 +3,7 @@ const HTTP = require("http");
 const EXPRESS = require("express");
 const BODY_PARSER = require('body-parser');
 const COMPRESSION = require('compression');
-const ESCAPE_REGEXP_COMPONENT = require("escape-regexp-component");
 const MORGAN = require('morgan');
-const SEND = require('send');
 const PATH = require("path");
 const FS = require("fs");
 
@@ -55,116 +53,23 @@ exports.main = function (CONFIG) {
     }));
 
 
-
-    CONFIG.routes.system().forEach(function (route) {
-        app.get(new RegExp(route.match.replace(/\//g, "\\/")), route.app);
+    // Attach declared routes
+    var routes = CONFIG.routes.system();
+    var routesApp = new EXPRESS();
+    routes.routes.forEach(function (route) {
+        console.log("ROUTE", route.match.replace(/\//g, "\\/"));
+        routesApp.get(new RegExp(route.match.replace(/\//g, "\\/")), route.app);
+    });
+    app.get(new RegExp(routes.match.replace(/\//g, "\\/")), function (req, res, next) {
+        req.url = req.params[0];
+        return routesApp(req, res, function (err) {
+    		if (err) return next(err);
+            var err = new Error("Unknown route '" + req.url + "'");
+            err.code = 403;
+            return next(err);
+    	});
     });
 
-
-    app.get(/^(.*)/, function (req, res, next) {
-
-        var htmRequested = /\.html?$/.test(req.params[0]);
-
-        if (
-            !htmRequested &&
-            !req.cookies.get("0_INVITE_TOKEN")
-        ) {
-            res.writeHead(403);
-            res.end("Forbidden. You need an invite!");
-            return;
-        }
-
-        function locateFile (uri) {
-            if (/\/$/.test(uri)) {
-                uri += "index";
-            }
-
-            // TODO: Cache in dist path and use it instead of re-generating if no source modified
-            var htmExt = ".htm" + (/\/index$/.test(uri) ? "l":"");
-            var path = PATH.join(__dirname, "../../../../skins/0/SemanticUI", uri + htmExt);
-            return FS.exists(path, function (exists) {
-
-                function send (uri) {
-
-                    var path = PATH.join(__dirname, "../../../../skins/0/SemanticUI", uri);
-
-                    if (htmRequested) {
-                        // The route was requested with the 'htm' extension so we serve
-                        // the raw file instead of the componentifed file.
-                        // TODO: Remove this option and return 404 in production.
-
-                        // TODO: Relocate this into adapter.
-                        // We convert the namespaced 'component' attributes as jQuery has a hard
-                        // time selcting attributes with colons in it. Likely true for many other
-                        // parsers as well.
-                        if (/;convert-to-data;/.test(req.headers["x-component-namespace"] || "")) {
-                            return FS.readFile(path, "utf8", function (err, html) {
-                                if (err) return next(err);
-                        
-    							var re = /(<|\s)component\s*:\s*([^=]+)(\s*=\s*"[^"]*"(?:\/?>|\s))/g;
-    							var m;
-    							while ( (m = re.exec(html)) ) {
-    								html = html.replace(
-    								    new RegExp(ESCAPE_REGEXP_COMPONENT(m[0]), "g"),
-    								    m[1] + "data-component-" + m[2].replace(/:/g, "-") + m[3]
-    								);
-    							}
-
-                                res.writeHead(200, {
-                                    "Content-Type": "text/html"
-                                });
-                                res.end(html);
-                                return;
-                            });
-                        }
-
-                        return FS.createReadStream(path).pipe(res);
-                    } else {
-
-                        return FS.readFile(path, "utf8", function (err, html) {
-                            if (err) return next(err);
-
-                            return require("../../../../cores/export/for/sm.hoist.VisualComponents/export").parseForUri(
-                                PATH.join(__dirname, "../../../../skins/0/SemanticUI/components.json"),
-                                uri,
-                                function (err, manifest) {
-                                    if (err) return next(err);
-                                    
-                                    if (
-                                        !manifest.components ||
-                                        !manifest.components.html ||
-                                        !manifest.components.html.fsHtmlPath
-                                    ) {
-                                        var err = new Error("'html' component not declared in exports for uri '" + uri + "'!");
-                                        err.code = 404;
-                                        return next(err);
-                                    }
-
-                                    res.writeHead(200, {
-                                        "Content-Type": "text/html"
-                                    });
-                                    return FS.createReadStream(manifest.components.html.fsHtmlPath).pipe(res);
-                                }
-                            );
-                        });
-                    }
-                }
-
-                if (exists) {
-                    uri = uri + htmExt;
-                } else {
-                    // If the original path is not found we fall back
-                    // to the htm file of the parent secion and let the
-                    // client load the correct page content based on
-                    // window.location.pathname
-                    return locateFile(PATH.dirname(uri));
-                }
-                return send(uri);
-            });
-        }
-        
-        return locateFile(req.params[0]);
-    });
 
     var server = HTTP.createServer(function (req, res) {
     
