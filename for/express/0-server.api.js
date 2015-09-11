@@ -54,20 +54,22 @@ exports.main = function (CONFIG) {
 
 
     // Attach declared routes
-    var routes = CONFIG.routes.system();
-    var routesApp = new EXPRESS();
-    routes.routes.forEach(function (route) {
-        console.log("ROUTE", route.match.replace(/\//g, "\\/"));
-        routesApp.get(new RegExp(route.match.replace(/\//g, "\\/")), route.app);
-    });
-    app.get(new RegExp(routes.match.replace(/\//g, "\\/")), function (req, res, next) {
-        req.url = req.params[0];
-        return routesApp(req, res, function (err) {
-    		if (err) return next(err);
-            var err = new Error("Unknown route '" + req.url + "'");
-            err.code = 403;
-            return next(err);
-    	});
+    Object.keys(CONFIG.routes).forEach(function (routeAlias) {
+        var routes = CONFIG.routes[routeAlias]();
+        var routesApp = new EXPRESS();
+        routes.routes.forEach(function (route) {
+            console.log("ROUTE", routes.match, route.match);
+            routesApp.get(new RegExp(route.match.replace(/\//g, "\\/")), route.app);
+        });
+        app.get(new RegExp(routes.match.replace(/\//g, "\\/")), function (req, res, next) {
+            req.url = req.params[0];
+            return routesApp(req, res, function (err) {
+        		if (err) return next(err);
+                var err = new Error("Unknown route '" + req.url + "'");
+                err.code = 403;
+                return next(err);
+        	});
+        });
     });
 
 
