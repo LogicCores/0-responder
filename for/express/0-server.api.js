@@ -59,7 +59,9 @@ exports.main = function (CONFIG) {
         var routesApp = new EXPRESS();
         routes.routes.forEach(function (route) {
             console.log("ROUTE", routes.match, route.match);
-            routesApp.get(new RegExp(route.match.replace(/\//g, "\\/")), route.app);
+            routesApp.get(new RegExp(route.match.replace(/\//g, "\\/")), function (req, res, next) {
+                return route.app(req, res, next);
+            });
         });
         app.get(new RegExp(routes.match.replace(/\//g, "\\/")), function (req, res, next) {
             req.url = req.params[0];
