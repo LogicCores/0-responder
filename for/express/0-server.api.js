@@ -78,9 +78,15 @@ exports.main = function (CONFIG) {
     var server = HTTP.createServer(function (req, res) {
     
         function respondWithError (err) {
+            if (!err) {
+        		res.writeHead(404);
+        		res.end("Not Found");
+        		return;
+            }
     		console.error(err.stack);
     		res.writeHead(500);
     		res.end("Internal Server Error");
+    		return;
     	}
     
     	try {
