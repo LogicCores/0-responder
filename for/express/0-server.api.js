@@ -58,10 +58,14 @@ exports.main = function (CONFIG) {
         var routes = CONFIG.routes[routeAlias]();
         var routesApp = new EXPRESS();
         routes.routes.forEach(function (route) {
-            console.log("ROUTE", routes.match, route.match);
-            routesApp.get(new RegExp(route.match.replace(/\//g, "\\/")), function (req, res, next) {
-                return route.app(req, res, next);
-            });
+            if (route.app) {
+                console.log("ROUTE", routes.match, route.match);
+                routesApp.get(new RegExp(route.match.replace(/\//g, "\\/")), function (req, res, next) {
+                    return route.app(req, res, next);
+                });
+            } else {
+                console.log(" skip route", routes.match, route.match, "(no 'app' declared)");
+            }
         });
         app.get(new RegExp(routes.match.replace(/\//g, "\\/")), function (req, res, next) {
             req.url = req.params[0];
