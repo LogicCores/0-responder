@@ -5,7 +5,7 @@ exports.forLib = function (LIB) {
     return LIB.Promise.resolve({
         forConfig: function (defaultConfig) {
 
-            const SERVER = require("./0-server.api");
+            const SERVER = require("./0-server.api").forLib(LIB);
 
             var Entity = function (instanceConfig) {
                 var self = this;
