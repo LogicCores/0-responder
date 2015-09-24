@@ -8,13 +8,14 @@ exports.forLib = function (LIB) {
             var Entity = function (instanceConfig) {
                 var self = this;
 
-                self.AspectInstance = function (aspectConfig) {
+                var config = {};
+                LIB._.merge(config, defaultConfig);
+                LIB._.merge(config, instanceConfig);
+                config = ccjson.attachDetachedFunctions(config);
 
-                    var config = {};
-                    LIB._.merge(config, defaultConfig);
-                    LIB._.merge(config, instanceConfig);
-                    LIB._.merge(config, aspectConfig);
-                    config = ccjson.attachDetachedFunctions(config);
+                var context = config.context();
+
+                self.AspectInstance = function (aspectConfig) {
 
                     // TODO: Relocate to external parser.
                     function loadComponentScriptFromFile (path, componentId) {
@@ -91,79 +92,88 @@ exports.forLib = function (LIB) {
                                         var type = req.params[2];
                                         var pointer = (req.params[3] || "").replace(/^\//, "");
 
-                                        return req.context.page.contextForUri(pagePath).then(function (pageContext) {
-                                            if (!pageContext) {
-                                                throw new Error("Could not load page context for uri '" + pagePath + "'");
-                                            }
-
-                                            var pagePath = pageContext.page.data.realpath;
-
-                                            function wireComponent () {
-                                                return loadComponentScriptFromFile(
-                                                    pagePath,
-                                                    firewidgetId
-                                                ).then(function (script) {
-                                                    if (!script) {
-                                                        throw new Error("No server-side 'script' found for component '" + firewidgetId + "' on page '" + pagePath + "'");
-                                                    }
-                                                    return new LIB.Promise(function (resolve, reject) {
-                                                        try {
-                                                            script({
-                                                                wireComponent: function (wiring) {
-                                    
-                                                                    var dataProducer = null;
-                                    
-                                                                    if (typeof wiring.produceData === "function") {
-                                                                        // TODO: Make which adapter to use configurable when refactoring to use ccjson
-                                                                        dataProducer = new (req.context["data.knexjs.mapper"]).Producer();
-
-                                                                        dataProducer.setDataProducer(wiring.produceData);
-                                                                    }
-                                    
-                                                                    return resolve({
-                                                                        dataProducer: dataProducer,
-                                                                        handleAction: wiring.handleAction || null
-                                                                    });
-                                                                }
-                                                            });
-                                                        } catch (err) {
-                                                            console.error("Error wiring component using script:", err.stack);
-                                                            return reject(err);
-                                                        }
-                                                    });
-                                                });
-                                            }
-
-                                            return wireComponent().then(function (wiring) {
-                                                
-                                                if (type === "pointer") {
-                                                    return wiring.dataProducer.app({
-                                                        context: req.context,
-                                                        pointer: pointer
-                                                    })(req, res, function (err) {
-                                                        throw err;
-                                                    });
-                                                } else
-                                                if (type === "action") {
-                                                    return LIB.Promise.try(function () {
-                                                        if (typeof wiring.handleAction !== "function") {
-                                                            throw new Error("'handleAction' not declared for server API of component!");
-                                                        }
-                                                        return wiring.handleAction(
-                                                            req.context,
-                                                            req.body.action,
-                                                            req.body.payload
-                                                        );
-                                                    }).then(function (response) {
-                                                        res.writeHead(200, {
-                                                            "Content-Type": "application/json"
-                                                        });
-                                                        res.end(JSON.stringify(response, null, 4));
-                                                        return;
-                                                    });
-                                                } else {
-                                                    throw new Error("Route type '" + type + "' not supported!");
+                                        return LIB.Promise.all([
+                                            context.getAdapterAPI("page"),
+                                            context.getAdapterAPI("data.knexjs.mapper")
+                                        ]).spread(function (page, mapper) {
+                            
+                                            return page.contextForUri(pagePath).then(function (pageContext) {
+                                                if (!pageContext) {
+                                                    throw new Error("Could not load page context for uri '" + pagePath + "'");
                                                 }
+    
+                                                var pagePath = pageContext.page.data.realpath;
+    
+                                                function wireComponent () {
+                                                    return loadComponentScriptFromFile(
+                                                        pagePath,
+                                                        firewidgetId
+                                                    ).then(function (script) {
+                                                        if (!script) {
+                                                            throw new Error("No server-side 'script' found for component '" + firewidgetId + "' on page '" + pagePath + "'");
+                                                        }
+                                                        return new LIB.Promise(function (resolve, reject) {
+                                                        
+    console.log("Calling widget '" + firewidgetId + "' for page '" + pagePath + "'");
+    
+                                                            try {
+                                                                script({
+                                                                    wireComponent: function (wiring) {
+                                        
+                                                                        var dataProducer = null;
+                                        
+                                                                        if (typeof wiring.produceData === "function") {
+                                                                            // TODO: Make which adapter to use configurable when refactoring to use ccjson
+                                                                            dataProducer = new mapper.Producer();
+    
+                                                                            dataProducer.setDataProducer(wiring.produceData);
+                                                                        }
+                                        
+                                                                        return resolve({
+                                                                            dataProducer: dataProducer,
+                                                                            handleAction: wiring.handleAction || null
+                                                                        });
+                                                                    }
+                                                                });
+                                                            } catch (err) {
+                                                                console.error("Error wiring component using script:", err.stack);
+                                                                return reject(err);
+                                                            }
+                                                        });
+                                                    });
+                                                }
+    
+                                                return wireComponent().then(function (wiring) {
+                                                    
+                                                    if (type === "pointer") {
+                                                        return wiring.dataProducer.app({
+                                                            context: context,
+                                                            pointer: pointer
+                                                        })(req, res, function (err) {
+                                                            throw err;
+                                                        });
+                                                    } else
+                                                    if (type === "action") {
+                                                        return LIB.Promise.try(function () {
+                                                            if (typeof wiring.handleAction !== "function") {
+                                                                throw new Error("'handleAction' not declared for server API of component!");
+                                                            }
+                                                            return wiring.handleAction(
+                                                                context,
+                                                                req.body.action,
+                                                                req.body.payload
+                                                            );
+                                                        }).then(function (response) {
+                                                            res.writeHead(200, {
+                                                                "Content-Type": "application/json"
+                                                            });
+                                                            res.end(JSON.stringify(response, null, 4));
+                                                            return;
+                                                        });
+                                                    } else {
+                                                        throw new Error("Route type '" + type + "' not supported!");
+                                                    }
+                                                });
                                             });
                                         }).catch(function (err) {
                                             console.error(err.stack);
