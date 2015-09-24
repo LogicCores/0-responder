@@ -88,7 +88,8 @@ exports.forLib = function (LIB) {
 
                                         var pagePath = req.params[0];
                                         var firewidgetId = req.params[1];
-                                        var pointer = req.params[2];
+                                        var type = req.params[2];
+                                        var pointer = (req.params[3] || "").replace(/^\//, "");
 
                                         return req.context.page.contextForUri(pagePath).then(function (pageContext) {
                                             if (!pageContext) {
@@ -114,13 +115,14 @@ exports.forLib = function (LIB) {
                                     
                                                                     if (typeof wiring.produceData === "function") {
                                                                         // TODO: Make which adapter to use configurable when refactoring to use ccjson
-                                                                        dataProducer = new (req.context["data.mapper"]).Producer();
+                                                                        dataProducer = new (req.context["data.knexjs.mapper"]).Producer();
 
                                                                         dataProducer.setDataProducer(wiring.produceData);
                                                                     }
                                     
                                                                     return resolve({
-                                                                        dataProducer: dataProducer
+                                                                        dataProducer: dataProducer,
+                                                                        handleAction: wiring.handleAction || null
                                                                     });
                                                                 }
                                                             });
@@ -133,13 +135,35 @@ exports.forLib = function (LIB) {
                                             }
 
                                             return wireComponent().then(function (wiring) {
-
-                                                return wiring.dataProducer.app({
-                                                    context: req.context,
-                                                    pointer: pointer
-                                                })(req, res, function (err) {
-                                                    throw err;
-                                                });
+                                                
+                                                if (type === "pointer") {
+                                                    return wiring.dataProducer.app({
+                                                        context: req.context,
+                                                        pointer: pointer
+                                                    })(req, res, function (err) {
+                                                        throw err;
+                                                    });
+                                                } else
+                                                if (type === "action") {
+                                                    return LIB.Promise.try(function () {
+                                                        if (typeof wiring.handleAction !== "function") {
+                                                            throw new Error("'handleAction' not declared for server API of component!");
+                                                        }
+                                                        return wiring.handleAction(
+                                                            req.context,
+                                                            req.body.action,
+                                                            req.body.payload
+                                                        );
+                                                    }).then(function (response) {
+                                                        res.writeHead(200, {
+                                                            "Content-Type": "application/json"
+                                                        });
+                                                        res.end(JSON.stringify(response, null, 4));
+                                                        return;
+                                                    });
+                                                } else {
+                                                    throw new Error("Route type '" + type + "' not supported!");
+                                                }
                                             });
                                         }).catch(function (err) {
                                             console.error(err.stack);

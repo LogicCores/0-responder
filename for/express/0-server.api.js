@@ -63,15 +63,27 @@ exports.forLib = function (LIB) {
             routes.routes.forEach(function (route) {
                 if (route.app) {
                     console.log("ROUTE", routes.match, route.match);
-                    routesApp.get(new RegExp(route.match.replace(/\//g, "\\/")), function (req, res, next) {
-    //console.log("  run route:", routes.match, route.match);
-                        return route.app(req, res, next);
-                    });
+                    
+                    var expression = new RegExp(route.match.replace(/\//g, "\\/"));
+                    
+                    if (route.methods === "*") {
+                        routesApp.all(expression, function (req, res, next) {
+        //console.log("  run route:", routes.match, route.match);
+                            return route.app(req, res, next);
+                        });
+                    } else {
+                        route.methods.forEach(function (method) {
+                            routesApp[method.toLowerCase()](expression, function (req, res, next) {
+            //console.log("  run route:", routes.match, route.match);
+                                return route.app(req, res, next);
+                            });
+                        });
+                    }
                 } else {
                     console.log(" skip route", routes.match, route.match, "(no 'app' declared)");
                 }
             });
-            app.get(new RegExp(routes.match.replace(/\//g, "\\/")), function (req, res, next) {
+            app.all(new RegExp(routes.match.replace(/\//g, "\\/")), function (req, res, next) {
                 req.url = req.params[0];
                 return routesApp(req, res, function (err) {
             		if (err) return next(err);
