@@ -84,6 +84,9 @@ exports.forLib = function (LIB) {
                 }
             });
             app.all(new RegExp(routes.match.replace(/\//g, "\\/")), function (req, res, next) {
+                
+console.log("REQUEST:", req.url);
+                
                 req.url = req.params[0];
                 return routesApp(req, res, function (err) {
             		if (err) return next(err);
