@@ -3,5 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "dependencies": {
+    "esprima": "^2.6.0"
   }
 }

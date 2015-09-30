@@ -2,6 +2,8 @@
 exports.forLib = function (LIB) {
     var ccjson = this;
 
+    const ESPRIMA = require("esprima");
+
     return LIB.Promise.resolve({
         forConfig: function (defaultConfig) {
 
@@ -48,12 +50,22 @@ exports.forLib = function (LIB) {
                                                 scriptInfo.location === "server" &&
                                                 scriptInfo.id === componentId
                                             ) {
+                                                var code = scriptBuffer.join("\n");
+                                                
+                                                // Ensure JS is valid.
+                                                try {
+                                                    ESPRIMA.parse(code);
+                                                } catch (err) {
+                                                    console.log("Syntax error for component '" + componentId + "' in file '" + path + "':", err.toString());
+                                                    return callback(err);
+                                                }
+
                                                 loadComponentScriptFromFile._cache[path] = {
                                                     data: data,
                                                     componentId: componentId,
                                                     func: new Function(
                                                         "context",
-                                                        scriptBuffer.join("\n")
+                                                        code
                                                     )
                                                 };
                                                 return callback(null, loadComponentScriptFromFile._cache[path].func);
