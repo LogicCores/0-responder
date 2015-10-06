@@ -38,7 +38,7 @@ exports.forLib = function (LIB) {
             res.setHeader("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS");
             res.setHeader("Access-Control-Allow-Credentials", "true");
             res.setHeader("Access-Control-Allow-Origin", origin);
-            res.setHeader("Access-Control-Allow-Headers", "Content-Type, Cookie");
+            res.setHeader("Access-Control-Allow-Headers", "Content-Type, Cookie, X-Request-Type");
             if (req.method === "OPTIONS") {
                 return res.end();
             }
