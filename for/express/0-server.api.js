@@ -6,6 +6,8 @@ const COMPRESSION = require('compression');
 const MORGAN = require('morgan');
 const PATH = require("path");
 const FS = require("fs");
+const STACK = require("stack");
+
 
 exports.forLib = function (LIB) {
 
@@ -57,51 +59,72 @@ exports.forLib = function (LIB) {
     
     
         // Attach declared routes
-        Object.keys(CONFIG.routes).forEach(function (routeAlias) {
-            var routes = CONFIG.routes[routeAlias]();
-            var routesApp = new EXPRESS();
-            routes.routes.forEach(function (route) {
-                if (route.app) {
-                    console.log("ROUTE", routes.match, route.match);
-                    
-                    var expression = new RegExp(route.match.replace(/\//g, "\\/"));
-                    
-                    if (route.methods === "*") {
-                        routesApp.all(expression, function (req, res, next) {
-        //console.log("  run route:", routes.match, route.match);
-                            return route.app(req, res, next);
-                        });
-                    } else {
-                        route.methods.forEach(function (method) {
-                            routesApp[method.toLowerCase()](expression, function (req, res, next) {
-            //console.log("  run route:", routes.match, route.match);
-                                return route.app(req, res, next);
-                            });
-                        });
-                    }
-                } else {
-                    console.log(" skip route", routes.match, route.match, "(no 'app' declared)");
-                }
-            });
-            app.all(new RegExp(routes.match.replace(/\//g, "\\/")), function (req, res, next) {
-                
-console.log("REQUEST:", req.url);
-                
-                req.url = req.params[0];
-                return routesApp(req, res, function (err) {
-            		if (err) return next(err);
-                    var err = new Error("Unknown route '" + req.url + "'");
-                    err.code = 403;
-                    return next(err);
-            	});
-            });
-        });
+        function attachStack (stackRoutes) {
+            Object.keys(stackRoutes).forEach(function (routeAlias) {
+                var routes = stackRoutes[routeAlias]();
+                var routesApp = new EXPRESS();
+                routes.routes.forEach(function (route) {
+                    if (route.app || route.apps) {
+                        console.log("ROUTE", routes.match, route.match);
     
+                        var expression = new RegExp(route.match.replace(/\//g, "\\/"));
+    
+                        var rootApp = route.app;
+                        if (!rootApp) {
+                            var appAliases = Object.keys(route.apps);
+                            rootApp = function (req, res, next) {
+                                STACK.errorHandler = function (req, res, err) {
+                                    return next(err);
+                                }
+                                return STACK.apply(null, appAliases.map(function (appAlias) {
+                                    return function (req, res, next) {
+                                        return route.apps[appAlias](req, res, next);
+                                    };
+                                }))(req, res);
+                            }
+                        }
+    
+                        if (route.methods === "*") {
+                            routesApp.all(expression, function (req, res, next) {
+    //console.log("  run route1:", routes.match, route);
+                                return rootApp(req, res, next);
+                            });
+                        } else {
+                            route.methods.forEach(function (method) {
+                                routesApp[method.toLowerCase()](expression, function (req, res, next) {
+    //console.log("  run route2:", routes.match, route);
+                                    return rootApp(req, res, next);
+                                });
+                            });
+                        }
+                    } else {
+                        console.log(" skip route", routes.match, route.match, "(no 'app' declared)");
+                    }
+                });
+                app.all(new RegExp(routes.match.replace(/\//g, "\\/")), function (req, res, next) {
+                    
+    console.log("REQUEST:", req.url);
+                    
+                    req.url = req.params[0];
+                    return routesApp(req, res, function (err) {
+                		if (err) return next(err);
+                        var err = new Error("Unknown route '" + req.url + "'");
+                        err.code = 403;
+                        return next(err);
+                	});
+                });
+            });
+        }
+        for (var i=0 ; typeof CONFIG["routes" + i] !== "undefined"; i++) {
+            attachStack(CONFIG["routes" + i]);
+        }
+
     
         var server = HTTP.createServer(function (req, res) {
         
             function respondWithError (err) {
                 if (!err) {
+                    console.error("No route found on server for url '" + req.url + "'!");
             		res.writeHead(404);
             		res.end("Not Found");
             		return;
