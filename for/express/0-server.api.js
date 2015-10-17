@@ -115,7 +115,8 @@ exports.forLib = function (LIB) {
                 });
             });
         }
-        for (var i=0 ; typeof CONFIG["routes" + i] !== "undefined"; i++) {
+        for (var i=1 ; i<=10; i++) {
+            if (!CONFIG["routes" + i]) continue;
             attachStack(CONFIG["routes" + i]);
         }
 
