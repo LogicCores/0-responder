@@ -9,6 +9,8 @@ const FS = require("fs");
 const STACK = require("stack");
 
 
+const DEBUG = false;
+
 exports.forLib = function (LIB) {
 
     var exports = {};
@@ -56,8 +58,35 @@ exports.forLib = function (LIB) {
         		'application/vnd.api+json'
         	]
         }));
-    
-    
+
+
+        if (
+            CONFIG.logger &&
+            CONFIG.logger["404"]
+        ) {
+            // TODO: Ignore duplicate 404 errors for our process and throttle error logging
+            //       by discarding some errors if there are many. If this happens there is likely
+            //       something wrong with the system as we should only get occasional 404 errors.
+            app.use(function (req, res, next) {
+                var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress || "";
+                var method = req.method;
+                var url = req.url;
+                res.once("finish", function () {
+                    if (res.statusCode !== 404) return;
+                    CONFIG.logger["404"]({
+                        "ip": ip,
+                        "method": method,
+                        "url": url
+                    }).catch(function (err) {
+                        console.log("Error logging 404 response!", err.stack);
+                    });
+                    return;
+                });
+                return next();
+            });
+        }
+
+
         // Attach declared routes
         function attachStack (stackRoutes) {
             Object.keys(stackRoutes).forEach(function (routeAlias) {
@@ -86,13 +115,13 @@ exports.forLib = function (LIB) {
     
                         if (route.methods === "*") {
                             routesApp.all(expression, function (req, res, next) {
-    //console.log("  run route1:", routes.match, route);
+if (DEBUG) console.log("  run route1:", routes.match, route);
                                 return rootApp(req, res, next);
                             });
                         } else {
                             route.methods.forEach(function (method) {
                                 routesApp[method.toLowerCase()](expression, function (req, res, next) {
-    //console.log("  run route2:", routes.match, route);
+if (DEBUG) console.log("  run route2:", routes.match, route);
                                     return rootApp(req, res, next);
                                 });
                             });
