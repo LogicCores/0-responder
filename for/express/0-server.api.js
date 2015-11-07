@@ -131,10 +131,13 @@ if (DEBUG) console.log("  run route2:", routes.match, route);
                     }
                 });
                 app.all(new RegExp(routes.match.replace(/\//g, "\\/")), function (req, res, next) {
-                    
-    console.log("REQUEST:", req.url);
-                    
+
+                    req.subUri = req.url;
                     req.url = req.params[0];
+                    req.subUri = req.subUri.substring(0, req.subUri.length - req.url.length);
+
+console.log("REQUEST (" + req.subUri + "):", req.url);
+
                     return routesApp(req, res, function (err) {
                 		if (err) return next(err);
                         var err = new Error("Unknown route '" + req.url + "'");
