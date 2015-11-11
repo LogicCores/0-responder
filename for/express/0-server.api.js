@@ -134,7 +134,7 @@ if (DEBUG) console.log("  run route2:", routes.match, route);
 
                     req.subUri = req.url;
                     req.url = req.params[0];
-                    req.subUri = req.subUri.substring(0, req.subUri.length - req.url.length);
+                    req.subUri = req.subUri.substring(0, req.subUri.length - req.url.length).replace(/\/?\?.*$/, "");
 
 console.log("REQUEST (" + req.subUri + "):", req.url);
 
