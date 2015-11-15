@@ -1,23 +1,19 @@
 
-const HTTP = require("http");
-const EXPRESS = require("express");
-const BODY_PARSER = require('body-parser');
-const COMPRESSION = require('compression');
-const MORGAN = require('morgan');
-const PATH = require("path");
-const FS = require("fs");
-const STACK = require("stack");
-
-
-const DEBUG = false;
-
 exports.forLib = function (LIB) {
+
+    const DEBUG = LIB.VERBOSE;
 
     var exports = {};
 
     exports.main = function (CONFIG) {
-    
-        var app = new EXPRESS();
+
+        const HTTP = require("http");
+        const BODY_PARSER = require('body-parser');
+        const COMPRESSION = require('compression');
+        const MORGAN = require('morgan');
+        const STACK = require("stack");
+
+        var app = new LIB.express();
     
         app.use(MORGAN("combined", {
             skip: function (req, res) {
@@ -91,7 +87,7 @@ exports.forLib = function (LIB) {
         function attachStack (stackRoutes) {
             Object.keys(stackRoutes).forEach(function (routeAlias) {
                 var routes = stackRoutes[routeAlias]();
-                var routesApp = new EXPRESS();
+                var routesApp = new LIB.express();
                 routes.routes.forEach(function (route) {
                     if (route.app || route.apps) {
                         console.log("ROUTE", routes.match, route.match);
