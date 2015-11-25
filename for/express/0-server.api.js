@@ -20,9 +20,18 @@ exports.forLib = function (LIB) {
                 return res.statusCode < 400;
             }
         }));
-        
-        app.use(COMPRESSION());
-    
+
+        app.use(COMPRESSION({
+            filter: function (req, res) {
+                var contentType = res.getHeader("Content-Type");
+                if (/^image\//.test(contentType)) {
+                    return true;
+                }
+                // fallback to standard filter function
+                return COMPRESSION.filter(req, res)            
+            }
+        }));
+
         app.use(function (req, res, next) {
         	var origin = null;
             if (req.headers.origin) {
