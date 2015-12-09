@@ -172,11 +172,19 @@ console.log("REQUEST (" + req.subUri + "):", req.url);
         		res.end("Internal Server Error");
         		return;
         	}
-        
+
         	try {
-    
+
+        	    if (
+        	        req.method === "GET" &&
+        	        req.url === "/.status"
+        	    ) {
+        	        res.setHeader("x-server-booted", "1");
+        	        // TODO: Do not log this as 404 if not found.
+        	    }
+
         		return app(req, res, respondWithError);
-        
+
         	} catch (err) {
         	    
         	    return respondWithError(err);
