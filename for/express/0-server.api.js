@@ -182,6 +182,8 @@ console.log("REQUEST (" + req.subUri + "):", req.url);
         	        res.setHeader("x-server-booted", "1");
         	        // TODO: Do not log this as 404 if not found.
         	    }
+        	    
+        	    req._server = server;
 
         		return app(req, res, respondWithError);
 
@@ -190,11 +192,12 @@ console.log("REQUEST (" + req.subUri + "):", req.url);
         	    return respondWithError(err);
         	}
         });
-    
+
         server.listen(parseInt(CONFIG.port), CONFIG.bind);
-    
+
         console.log("Server listening at: http://" + CONFIG.bind + ":" + CONFIG.port);
-    
+
+        return server;
     }
 
     return exports;

@@ -15,11 +15,38 @@ exports.forLib = function (LIB) {
                 LIB._.merge(config, instanceConfig);
                 config = ccjson.attachDetachedFunctions(config);
 
+
+                var server = null;
+
                 self.spin = function () {
                     return LIB.Promise.try(function () {
-                        return SERVER.main(config);
+                        var server = SERVER.main(config);
+                        return server;
                     });
                 }
+/*                
+                self.AspectInstance = function (aspectConfig) {
+
+                    var config = {};
+                    LIB._.merge(config, defaultConfig);
+                    LIB._.merge(config, instanceConfig);
+                    LIB._.merge(config, aspectConfig);
+                    config = ccjson.attachDetachedFunctions(config);
+
+                    return LIB.Promise.resolve({
+                        server: function () {
+
+                            return LIB.Promise.resolve(
+                                ccjson.makeDetachedFunction(
+                                    function () {
+                                        return server;
+                                    }
+                                )
+                            );
+                        }
+                    });
+                }
+*/
             }
             Entity.prototype.config = defaultConfig;
 
